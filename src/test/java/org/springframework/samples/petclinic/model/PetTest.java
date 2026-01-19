@@ -2,33 +2,32 @@ package org.springframework.samples.petclinic.model;
 
 import java.time.LocalDate;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
 
 class PetTest {
 
     @Test
-    void addVisit_shouldAddVisitAndSetPet() {
+    void shouldAddVisitToPet() {
         Pet pet = new Pet();
-        pet.setName("Tommy");
+        pet.setName("Bruno");
 
         Visit visit = new Visit();
         visit.setDate(LocalDate.now());
-        visit.setDescription("Checkup");
+        visit.setDescription("checkup");
 
         pet.addVisit(visit);
 
-        assertNotNull(pet.getVisits());
         assertEquals(1, pet.getVisits().size());
         assertEquals(pet, visit.getPet());
+        assertEquals("checkup", pet.getVisits().get(0).getDescription());
     }
 
     @Test
-    void toString_shouldNotThrow() {
+    void setVisitsShouldThrowExceptionWhenNull() {
         Pet pet = new Pet();
-        pet.setName("TestPet");
-        assertDoesNotThrow(pet::toString);
+
+        assertThrows(NullPointerException.class, () -> pet.setVisits(null));
     }
 }
