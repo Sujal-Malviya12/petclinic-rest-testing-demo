@@ -7,6 +7,6 @@ public class JunitDemoTest {
     @Test
     void SampleTest()
     {
-        assertEquals(5,3+2);
+        assertEquals(5,5+5);
     }
 }
