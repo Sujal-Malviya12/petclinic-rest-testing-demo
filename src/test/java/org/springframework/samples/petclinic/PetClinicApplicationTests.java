@@ -9,3 +9,4 @@ class PetClinicApplicationTests {
     void contextLoads() {
     }
 }
+// checking if jenkin is working automatically.
