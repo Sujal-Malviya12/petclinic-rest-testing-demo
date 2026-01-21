@@ -10,3 +10,5 @@ class PetClinicApplicationTests {
     }
 }
 // checking if jenkin is working automatically.
+// checking if jenkin is working automatically.
+// checking if jenkin is working automatically.
