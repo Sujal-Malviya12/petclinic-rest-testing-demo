@@ -10,7 +10,7 @@ pipeline {
 
         stage('Build + Unit Tests (JUnit)') {
             steps {
-                bat 'mvnw clean verify'
+                bat 'mvnw -B verify'
             }
         }
     }
