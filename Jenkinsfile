@@ -10,7 +10,7 @@ pipeline {
 
         stage('Build + Unit Tests (JUnit)') {
             steps {
-                bat 'mvnw -B verify'
+                bat 'mvnw clean verify'
             }
         }
     }
@@ -18,6 +18,12 @@ pipeline {
     post {
         always {
             junit 'target/surefire-reports/*.xml'
+        }
+        success {
+            echo "✅ Build passed"
+        }
+        failure {
+            echo "❌ Build failed"
         }
     }
 }
