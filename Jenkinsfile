@@ -2,13 +2,7 @@ pipeline {
     agent any
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Build + Unit Tests (JUnit)') {
+        stage('Build + Unit Tests') {
             steps {
                 bat 'mvnw clean verify'
             }
@@ -19,11 +13,13 @@ pipeline {
         always {
             junit 'target/surefire-reports/*.xml'
         }
+
         success {
-            echo "✅ Build passed"
+            githubNotify context: 'continuous/jenkin-test', status: 'SUCCESS', description: 'Jenkins build passed'
         }
+
         failure {
-            echo "❌ Build failed"
+            githubNotify context: 'continuous/jenkin-test', status: 'FAILURE', description: 'Jenkins build failed'
         }
     }
 }
