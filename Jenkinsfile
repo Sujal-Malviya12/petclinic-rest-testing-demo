@@ -1,23 +1,47 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        MAVEN_CMD = "mvn"
+    }
+
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Build + Unit Tests (JUnit)') {
+        stage('Build & Unit Tests') {
             steps {
-                bat 'mvnw clean verify'
+                echo "Running Maven build + tests..."
+                bat "${env.MAVEN_CMD} -U -e -B clean verify"
             }
         }
     }
 
     post {
         always {
-            junit 'target/surefire-reports/*.xml'
+            echo "Publishing test reports..."
+            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+        }
+
+        success {
+            echo "✅ Build & Tests Passed"
+        }
+
+        failure {
+            echo "❌ Build or Tests Failed"
+        }
+
+        cleanup {
+            cleanWs()
         }
     }
 }
