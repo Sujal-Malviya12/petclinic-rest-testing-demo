@@ -6,42 +6,32 @@ pipeline {
         disableConcurrentBuilds()
     }
 
-    environment {
-        MAVEN_CMD = "mvn"
-    }
-
     stages {
-
         stage('Checkout') {
-            steps {
-                checkout scm
-            }
+            steps { checkout scm }
         }
 
-        stage('Build & Unit Tests') {
+        stage('Build + Unit Tests') {
+            steps { bat "mvn -U -B clean verify" }
+        }
+
+        stage('SonarQube Scan') {
             steps {
-                echo "Running Maven build + tests..."
-                bat "${env.MAVEN_CMD} -U -e -B clean verify"
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    bat """
+                    mvn -B sonar:sonar ^
+                    -Dsonar.projectKey=petclinic-rest-testing-demo ^
+                    -Dsonar.host.url=http://localhost:9000 ^
+                    -Dsonar.login=%SONAR_TOKEN%
+                    """
+                }
             }
         }
     }
 
     post {
         always {
-            echo "Publishing test reports..."
             junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-        }
-
-        success {
-            echo "✅ Build & Tests Passed"
-        }
-
-        failure {
-            echo "❌ Build or Tests Failed"
-        }
-
-        cleanup {
-            cleanWs()
         }
     }
 }
