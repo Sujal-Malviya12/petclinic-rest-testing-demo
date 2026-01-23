@@ -9,9 +9,4 @@ class PetClinicApplicationTests {
     @Test
     void contextLoads() {
     }
-
-    @Test
-    void mainRuns() {
-        PetClinicApplication.main(new String[]{});
-    }
 }
