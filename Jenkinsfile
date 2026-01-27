@@ -28,26 +28,16 @@ pipeline {
 
         stage('SonarQube Scan') {
             steps {
-                 withSonarQubeEnv('Sonar-Qube-Token') {
-                    bat '''
-                    mvn sonar:sonar ^
-                    -Dsonar.projectKey=%SONAR_PROJECT_KEY% 
-                    -
-                '''
+                withSonarQubeEnv('Sonar-Qube-Token') {
+                    bat """
+                        mvn sonar:sonar ^
+                        -Dsonar.projectKey=%SONAR_PROJECT_KEY%
+                    """
+                }
             }
         }
-    }
-    stage('SonarQube Quality Gate') {
-    steps {
-        timeout(time: 5, unit: 'MINUTES') {
-            waitForQualityGate abortPipeline: true
-        }
-    }
-}
 
-
-
-        stage('Quality Gate') {
+        stage('SonarQube Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
