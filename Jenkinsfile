@@ -21,9 +21,9 @@ pipeline {
             }
         }
 
-        stage('Build + Unit Tests (JUnit)') {
+        stage('Build + Unit Tests') {
             steps {
-                bat "mvn -U -B clean verify"
+                bat 'mvn -U -B clean verify'
             }
         }
 
@@ -31,20 +31,21 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     bat """
-                    mvn -B sonar:sonar ^
-                    "-Dsonar.projectKey=%SONAR_PROJECT_KEY%" ^
-                    "-Dsonar.host.url=%SONAR_HOST%" ^
-                    "-Dsonar.token=%SONAR_TOKEN%"
+                        mvn -B sonar:sonar ^
+                        -Dsonar.projectKey=%SONAR_PROJECT_KEY% ^
+                        -Dsonar.host.url=%SONAR_HOST% ^
+                        -Dsonar.login=%SONAR_TOKEN%
                     """
                 }
             }
         }
 
-        stage('Start App (for JMeter test)') {
+        stage('Start App (for JMeter)') {
             steps {
                 bat """
-                start "petclinic" /B mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=%APP_PORT%
-                timeout /t 20
+                    start "petclinic" /B mvn spring-boot:run ^
+                    -Dspring-boot.run.arguments=--server.port=%APP_PORT%
+                    timeout /t 20
                 """
             }
         }
@@ -52,9 +53,9 @@ pipeline {
         stage('JMeter Performance Test') {
             steps {
                 bat """
-                "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
-                -t jmeter\\petclinic-smoke.jmx ^
-                -l target\\jmeter-results.jtl
+                    "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
+                    -t jmeter\\petclinic-smoke.jmx ^
+                    -l target\\jmeter-results.jtl
                 """
             }
         }
@@ -62,9 +63,8 @@ pipeline {
 
     post {
         always {
-            junit allowEmptyResults: true, testResults: "target/surefire-reports/*.xml"
+            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
         }
-
         cleanup {
             cleanWs()
         }
