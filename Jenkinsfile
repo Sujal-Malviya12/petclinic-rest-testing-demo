@@ -9,7 +9,6 @@ pipeline {
     environment {
         APP_PORT = "9966"
         JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
-        SONAR_HOST = "http://localhost:9000"
         SONAR_PROJECT_KEY = "petclinic-rest-testing-demo"
     }
 
@@ -28,16 +27,33 @@ pipeline {
         }
 
         stage('SonarQube Scan') {
+            steps {
+                 withSonarQubeEnv('Sonar-Qube-Token') {
+                    bat '''
+                    mvn sonar:sonar ^
+                    -Dsonar.projectKey=%SONAR_PROJECT_KEY% 
+                    -
+                '''
+            }
+        }
+    }
+    stage('SonarQube Quality Gate') {
     steps {
-        withSonarQubeEnv('SonarQube-Server') {
-            bat """
-            mvn -B clean verify sonar:sonar ^
-            -Dsonar.projectKey=%SONAR_PROJECT_KEY%
-            """
+        timeout(time: 5, unit: 'MINUTES') {
+            waitForQualityGate abortPipeline: true
         }
     }
 }
 
+
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
 
         stage('Start App (for JMeter)') {
             steps {
