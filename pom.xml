@@ -46,8 +46,7 @@
         <docker.image.prefix>springcommunity</docker.image.prefix>
 
         <!-- SonarQube configuration -->
-        <sonar.organization>spring-petclinic-rest</sonar.organization>
-        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        
 
     </properties>
 
@@ -188,6 +187,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
             </plugin>
+            
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jxr-plugin</artifactId>
@@ -251,12 +252,17 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>4.0.0.4121</version>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <executions>
                     <execution>
                         <!-- Spring Boot Actuator displays build-related information
-                          if a META-INF/build-info.properties file is present -->
+                        if a META-INF/build-info.properties file is present -->
                         <goals>
                             <goal>build-info</goal>
                         </goals>
