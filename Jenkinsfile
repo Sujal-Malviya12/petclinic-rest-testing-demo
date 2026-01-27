@@ -7,7 +7,9 @@ pipeline {
     }
 
     environment {
-        MAVEN_CMD = "mvn"
+        APP_PORT = "9966"
+        JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
+        SONAR_PROJECT_KEY = "petclinic-rest-testing-demo"
     }
 
     stages {
@@ -18,28 +20,66 @@ pipeline {
             }
         }
 
-        stage('Build & Unit Tests') {
+        stage('Build + Unit Tests') {
             steps {
-                echo "Running Maven build + tests..."
-                bat "${env.MAVEN_CMD} -U -e -B clean verify"
+                bat 'mvn -U -B clean verify'
+            }
+        }
+
+        stage('SonarQube Scan') {
+            steps {
+                 withSonarQubeEnv('Sonar-Qube-Token') {
+                    bat '''
+                    mvn sonar:sonar ^
+                    -Dsonar.projectKey=%SONAR_PROJECT_KEY% 
+                    -
+                '''
+            }
+        }
+    }
+    stage('SonarQube Quality Gate') {
+    steps {
+        timeout(time: 5, unit: 'MINUTES') {
+            waitForQualityGate abortPipeline: true
+        }
+    }
+}
+
+
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Start App (for JMeter)') {
+            steps {
+                bat """
+                    start "petclinic" /B mvn spring-boot:run ^
+                    -Dspring-boot.run.arguments=--server.port=%APP_PORT%
+                    timeout /t 20
+                """
+            }
+        }
+
+        stage('JMeter Performance Test') {
+            steps {
+                bat """
+                    "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
+                    -t jmeter\\petclinic-smoke.jmx ^
+                    -l target\\jmeter-results.jtl
+                """
             }
         }
     }
 
     post {
         always {
-            echo "Publishing test reports..."
             junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
         }
-
-        success {
-            echo "✅ Build & Tests Passed"
-        }
-
-        failure {
-            echo "❌ Build or Tests Failed"
-        }
-
         cleanup {
             cleanWs()
         }
