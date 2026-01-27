@@ -28,17 +28,16 @@ pipeline {
         }
 
         stage('SonarQube Scan') {
-            steps {
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    bat """
-                        mvn -B sonar:sonar ^
-                        -Dsonar.projectKey=%SONAR_PROJECT_KEY% ^
-                        -Dsonar.host.url=%SONAR_HOST% ^
-                        -Dsonar.login=%SONAR_TOKEN%
-                    """
-                }
-            }
+    steps {
+        withSonarQubeEnv('SonarQube-Server') {
+            bat """
+            mvn -B clean verify sonar:sonar ^
+            -Dsonar.projectKey=%SONAR_PROJECT_KEY%
+            """
         }
+    }
+}
+
 
         stage('Start App (for JMeter)') {
             steps {
