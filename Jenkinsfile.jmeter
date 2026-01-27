@@ -1,0 +1,28 @@
+pipeline {
+    agent any
+
+    environment {
+        JMETER_HOME = "C:\\jmeter\\apache-jmeter-5.6.3"
+        APP_URL = "http://localhost:9966"
+    }
+
+    stages {
+
+        stage('Run JMeter Test') {
+            steps {
+                bat """
+                "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
+                -t jmeter\\petclinic-smoke.jmx ^
+                -l target\\jmeter-results.jtl ^
+                -e -o target\\jmeter-report
+                """
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'target/jmeter-report/**', fingerprint: true
+        }
+    }
+}
