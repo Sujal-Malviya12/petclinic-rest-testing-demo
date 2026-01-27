@@ -46,14 +46,15 @@ pipeline {
         }
 
         stage('Start App (for JMeter)') {
-            steps {
-                bat """
-                    start "petclinic" /B mvn spring-boot:run ^
-                    -Dspring-boot.run.arguments=--server.port=%APP_PORT%
-                    timeout /t 20
-                """
-            }
-        }
+    steps {
+        bat """
+            start "petclinic" /B mvn spring-boot:run ^
+            -Dspring-boot.run.arguments=--server.port=%APP_PORT%
+            timeout /t 20
+        """
+    }
+}
+
 
         stage('JMeter Performance Test') {
             steps {
