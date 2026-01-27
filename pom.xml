@@ -189,6 +189,12 @@
                 <artifactId>maven-dependency-plugin</artifactId>
             </plugin>
             <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>4.0.0.4121</version>
+            </plugin>
+
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jxr-plugin</artifactId>
                 <version>${maven.jxr-plugin.version}</version>
@@ -256,7 +262,7 @@
                 <executions>
                     <execution>
                         <!-- Spring Boot Actuator displays build-related information
-                          if a META-INF/build-info.properties file is present -->
+                        if a META-INF/build-info.properties file is present -->
                         <goals>
                             <goal>build-info</goal>
                         </goals>
