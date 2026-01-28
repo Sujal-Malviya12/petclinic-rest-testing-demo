@@ -45,28 +45,28 @@ pipeline {
             }
         }
 
-//         stage('Start App (for JMeter)') {
-//     steps {
-//         bat """
-//             echo Starting Petclinic on port %APP_PORT%
-//             start "petclinic" /B mvn spring-boot:run ^
-//             -Dspring-boot.run.arguments=--server.port=%APP_PORT%
-//             ping 127.0.0.1 -n 20 > nul
-//         """
-//     }
-// }
+        stage('Start App (for JMeter)') {
+    steps {
+        bat """
+            echo Starting Petclinic on port %APP_PORT%
+            start "petclinic" /B mvn spring-boot:run ^
+            -Dspring-boot.run.arguments=--server.port=%APP_PORT%
+            ping 127.0.0.1 -n 20 > nul
+        """
+    }
+}
 
 
 
-//         stage('JMeter Performance Test') {
-//             steps {
-//                 bat """
-//                     "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
-//                     -t jmeter\\petclinic-smoke.jmx ^
-//                     -l target\\jmeter-results.jtl
-//                 """
-//             }
-//         }
+        stage('JMeter Performance Test') {
+            steps {
+                bat """
+                    "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
+                    -t jmeter\\petclinic-smoke.jmx ^
+                    -l target\\jmeter-results.jtl
+                """
+            }
+        }
     }
 
     post {
@@ -78,3 +78,4 @@ pipeline {
         }
     }
 }
+// End of Jenkinsfile.
