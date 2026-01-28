@@ -71,10 +71,11 @@ pipeline {
             steps {
                 bat """
                     echo Stopping application running on port %APP_PORT%
-                    for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%APP_PORT%') do taskkill /PID %%a /F
+                    for /f "tokens=5" %%a in ('netstat -ano ^| findstr LISTENING ^| findstr :%APP_PORT%') do taskkill /PID %%a /F
                 """
             }
         }
+
     }
 
     post {
