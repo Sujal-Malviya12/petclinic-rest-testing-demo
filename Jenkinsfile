@@ -66,6 +66,15 @@ pipeline {
                 """
             }
         }
+
+        stage('Stop App') {
+            steps {
+                bat """
+                    echo Stopping application running on port %APP_PORT%
+                    for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%APP_PORT%') do taskkill /PID %%a /F
+                """
+            }
+        }
     }
 
     post {
@@ -74,7 +83,7 @@ pipeline {
             archiveArtifacts artifacts: 'target/jmeter-results.jtl, target/jmeter-report/**', fingerprint: true
         }
         cleanup {
-            cleanWs()
+            cleanWs(deleteDirs: true, disableDeferredWipeout: true)
         }
     }
 }
