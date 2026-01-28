@@ -7,7 +7,9 @@ pipeline {
     }
 
     environment {
-        MAVEN_CMD = "mvn"
+        APP_PORT = "9966"
+        JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
+        SONAR_PROJECT_KEY = "petclinic-rest-testing-demo"
     }
 
     stages {
@@ -18,30 +20,78 @@ pipeline {
             }
         }
 
-        stage('Build & Unit Tests') {
+        stage('Build + Unit Tests') {
             steps {
-                echo "Running Maven build + tests..."
-                bat "${env.MAVEN_CMD} -U -e -B clean verify"
+                bat 'mvn -U -B clean verify'
             }
         }
+
+        stage('SonarQube Scan') {
+            steps {
+                withSonarQubeEnv('Sonar-Qube-Token') {
+                    bat """
+                        mvn sonar:sonar ^
+                        -Dsonar.projectKey=%SONAR_PROJECT_KEY%
+                    """
+                }
+            }
+        }
+
+        stage('SonarQube Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Start App (for JMeter)') {
+            steps {
+                bat """
+                    echo Starting Petclinic on port %APP_PORT%
+                    start "petclinic" /B mvn spring-boot:run ^
+                    -Dspring-boot.run.arguments=--server.port=%APP_PORT%
+                    ping 127.0.0.1 -n 20 > nul
+                """
+            }
+        }
+
+        stage('JMeter Performance Test') {
+            steps {
+                bat """
+                    "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
+                    -t jmeter\\petclinic-smoke.jmx ^
+                    -l target\\jmeter-results.jtl ^
+                    -e -o target\\jmeter-report
+                """
+            }
+        }
+
+        stage('Stop App') {
+    steps {
+        bat '''
+        echo Stopping application running on port %APP_PORT%
+
+        for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%APP_PORT%') do (
+            echo Killing PID %%a
+            taskkill /PID %%a /F
+        )
+
+        exit /b 0
+        '''
+    }
+}
+
+
     }
 
     post {
         always {
-            echo "Publishing test reports..."
             junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+            archiveArtifacts artifacts: 'target/jmeter-results.jtl, target/jmeter-report/**', fingerprint: true
         }
-
-        success {
-            echo "✅ Build & Tests Passed"
-        }
-
-        failure {
-            echo "❌ Build or Tests Failed"
-        }
-
         cleanup {
-            cleanWs()
+            cleanWs(deleteDirs: true, disableDeferredWipeout: true)
         }
     }
 }
