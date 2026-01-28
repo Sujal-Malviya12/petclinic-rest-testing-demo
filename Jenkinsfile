@@ -46,24 +46,23 @@ pipeline {
         }
 
         stage('Start App (for JMeter)') {
-    steps {
-        bat """
-            echo Starting Petclinic on port %APP_PORT%
-            start "petclinic" /B mvn spring-boot:run ^
-            -Dspring-boot.run.arguments=--server.port=%APP_PORT%
-            ping 127.0.0.1 -n 20 > nul
-        """
-    }
-}
-
-
+            steps {
+                bat """
+                    echo Starting Petclinic on port %APP_PORT%
+                    start "petclinic" /B mvn spring-boot:run ^
+                    -Dspring-boot.run.arguments=--server.port=%APP_PORT%
+                    ping 127.0.0.1 -n 20 > nul
+                """
+            }
+        }
 
         stage('JMeter Performance Test') {
             steps {
                 bat """
                     "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
                     -t jmeter\\petclinic-smoke.jmx ^
-                    -l target\\jmeter-results.jtl
+                    -l target\\jmeter-results.jtl ^
+                    -e -o target\\jmeter-report
                 """
             }
         }
@@ -72,10 +71,10 @@ pipeline {
     post {
         always {
             junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+            archiveArtifacts artifacts: 'target/jmeter-results.jtl, target/jmeter-report/**', fingerprint: true
         }
         cleanup {
             cleanWs()
         }
     }
 }
-// End of Jenkinsfile.
