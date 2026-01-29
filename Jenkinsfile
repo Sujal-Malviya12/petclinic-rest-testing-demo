@@ -56,10 +56,6 @@ pipeline {
             }
         }
 
-        stage('Wait for App') {
-        bat 'timeout /t 20'
-        }
-
         stage('JMeter Performance Test') {
             steps {
                 bat """
@@ -99,4 +95,4 @@ pipeline {
         }
     }
 }
-// End of Jenkinsfile   
+// End of Jenkinsfile
