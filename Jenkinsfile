@@ -28,7 +28,7 @@ pipeline {
 
         stage('SonarQube Scan') {
             steps {
-                withSonarQubeEnv('sonarqube') {
+                withSonarQubeEnv('Sonar-Qube-Token') {
                     bat """
                         mvn sonar:sonar ^
                         -Dsonar.projectKey=%SONAR_PROJECT_KEY%
@@ -68,17 +68,21 @@ pipeline {
         }
 
         stage('Stop App') {
-            steps {
-                bat """
-                echo Stopping application running on port %APP_PORT%
-                for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%APP_PORT%') do (
-                    echo Killing PID %%a
-                    taskkill /PID %%a /F
-                )
-                exit /b 0
-                """
-            }
-        }
+    steps {
+        bat '''
+        echo Stopping application running on port %APP_PORT%
+
+        for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%APP_PORT%') do (
+            echo Killing PID %%a
+            taskkill /PID %%a /F
+        )
+
+        exit /b 0
+        '''
+    }
+}
+
+
     }
 
     post {
@@ -91,3 +95,4 @@ pipeline {
         }
     }
 }
+// End of Jenkinsfile
