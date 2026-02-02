@@ -9,10 +9,6 @@ pipeline {
     environment {
         APP_PORT = "9966"
         JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
-<<<<<<< HEAD
-        SONAR_HOST = "http://localhost:9000"
-=======
->>>>>>> e6f3467e31b22227912386e843176a7be8a17e26
         SONAR_PROJECT_KEY = "petclinic-rest-testing-demo"
     }
 
@@ -27,58 +23,26 @@ pipeline {
         stage('Build + Unit Tests') {
             steps {
                 bat 'mvn -U -B clean verify'
-<<<<<<< HEAD
             }
         }
 
         stage('SonarQube Scan') {
-    steps {
-        withSonarQubeEnv('SonarQube-Server') {
-            bat """
-            mvn -B clean verify sonar:sonar ^
-            -Dsonar.projectKey=%SONAR_PROJECT_KEY%
-            """
-        }
-    }
-}
-
-
-        stage('Start App (for JMeter)') {
-            steps {
-                bat """
-                    start "petclinic" /B mvn spring-boot:run ^
-                    -Dspring-boot.run.arguments=--server.port=%APP_PORT%
-                    timeout /t 20
-                """
+            options {
+                timeout(time: 45, unit: 'MINUTES')
             }
-        }
-
-        stage('JMeter Performance Test') {
             steps {
-                bat """
-                    "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
-                    -t jmeter\\petclinic-smoke.jmx ^
-                    -l target\\jmeter-results.jtl
-                """
-=======
->>>>>>> e6f3467e31b22227912386e843176a7be8a17e26
-            }
-        }
-
-        stage('SonarQube Scan') {
-            steps {
-                withSonarQubeEnv('Sonar-Qube-Token') {
-                    bat """
+                withSonarQubeEnv('sonarqube') {
+                    bat '''
                         mvn sonar:sonar ^
                         -Dsonar.projectKey=%SONAR_PROJECT_KEY%
-                    """
+                    '''
                 }
             }
         }
 
         stage('SonarQube Quality Gate') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
+                timeout(time: 10, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
@@ -86,42 +50,40 @@ pipeline {
 
         stage('Start App (for JMeter)') {
             steps {
-                bat """
+                bat '''
                     echo Starting Petclinic on port %APP_PORT%
                     start "petclinic" /B mvn spring-boot:run ^
                     -Dspring-boot.run.arguments=--server.port=%APP_PORT%
                     ping 127.0.0.1 -n 20 > nul
-                """
+                '''
             }
         }
 
         stage('JMeter Performance Test') {
             steps {
-                bat """
+                bat '''
                     "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
                     -t jmeter\\petclinic-smoke.jmx ^
                     -l target\\jmeter-results.jtl ^
                     -e -o target\\jmeter-report
-                """
+                '''
             }
         }
 
         stage('Stop App') {
-    steps {
-        bat '''
-        echo Stopping application running on port %APP_PORT%
+            steps {
+                bat '''
+                    echo Stopping application running on port %APP_PORT%
 
-        for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%APP_PORT%') do (
-            echo Killing PID %%a
-            taskkill /PID %%a /F
-        )
+                    for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%APP_PORT%') do (
+                        echo Killing PID %%a
+                        taskkill /PID %%a /F
+                    )
 
-        exit /b 0
-        '''
-    }
-}
-
-
+                    exit /b 0
+                '''
+            }
+        }
     }
 
     post {
@@ -134,4 +96,3 @@ pipeline {
         }
     }
 }
-//uunjkn/.
