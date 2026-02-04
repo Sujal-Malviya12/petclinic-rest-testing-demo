@@ -8,9 +8,8 @@ pipeline {
 
     environment {
         JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
-        SONAR_HOST = "http://localhost:9000"
         SONAR_PROJECT = "petclinic-rest-testing"
-        PERF_THRESHOLD = "10"   // % allowed slowdown
+        PERF_THRESHOLD = "10"
     }
 
     stages {
@@ -32,30 +31,31 @@ pipeline {
             }
         }
 
+        // ---------------- SONAR ----------------
+
         stage('SonarQube Analysis') {
-    steps {
-        withSonarQubeEnv('SonarQube') {
-            withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                bat """
-                mvn clean verify sonar:sonar ^
-                -Dsonar.projectKey=petclinic-rest-testing ^
-                -Dsonar.token=%SONAR_TOKEN%
-                """
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        bat """
+                        mvn sonar:sonar ^
+                        -Dsonar.projectKey=%SONAR_PROJECT% ^
+                        -Dsonar.token=%SONAR_TOKEN%
+                        """
+                    }
+                }
             }
         }
-    }
-}
 
         stage('Quality Gate') {
-    steps {
-        timeout(time: 10, unit: 'MINUTES') {
-            waitForQualityGate abortPipeline: true
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
         }
-    }
-}
 
-
-
+        // ---------------- JMETER ----------------
 
         stage('JMeter Performance') {
             steps {
@@ -67,14 +67,33 @@ pipeline {
             }
         }
 
-        stage('Compare Performance') {
-    steps {
-        bat """
-        C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -ExecutionPolicy Bypass -File perf\\compare.ps1 baseline.csv result.csv 10
-        """
-    }
-}
+        // -------- REGRESSION CHECK (PRS ONLY) --------
 
+        stage('Regression Gate') {
+            when {
+                not { branch 'main' }
+            }
+            steps {
+                bat """
+                C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+                -ExecutionPolicy Bypass ^
+                -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
+                """
+            }
+        }
+
+        // -------- UPDATE BASELINE (MAIN ONLY) --------
+
+        stage('Update Baseline') {
+            when {
+                branch 'main'
+            }
+            steps {
+                bat "copy result.csv perf\\baseline.csv /Y"
+            }
+        }
+
+        // -------- REVIEWER OVERRIDE --------
 
         stage('Reviewer Override') {
             when {
@@ -83,6 +102,12 @@ pipeline {
             steps {
                 input message: "Performance regression detected. Override?"
             }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'result.csv', fingerprint: true
         }
     }
 }
