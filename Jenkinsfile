@@ -67,20 +67,19 @@ pipeline {
             }
         }
 
-        // -------- FETCH BASELINE FROM MASTER (PRS ONLY) --------
+        // -------- FETCH BASELINE (PRS ONLY) --------
 
         stage('Fetch Baseline') {
-    when {
-        not { branch 'master' }
-    }
-    steps {
-        bat """
-        if not exist perf mkdir perf
-        copy C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\petclinic-multibranch_master\\perf\\baseline.csv perf\\baseline.csv
-        """
-    }
-}
-
+            when {
+                not { branch 'master' }
+            }
+            steps {
+                bat """
+                if not exist perf mkdir perf
+                copy C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\petclinic-multibranch_master\\perf\\baseline.csv perf\\baseline.csv
+                """
+            }
+        }
 
         // -------- REGRESSION GATE (PRS ONLY) --------
 
@@ -89,11 +88,13 @@ pipeline {
                 not { branch 'master' }
             }
             steps {
-                bat """
-                C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
-                -ExecutionPolicy Bypass ^
-                -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
-                """
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    bat """
+                    C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+                    -ExecutionPolicy Bypass ^
+                    -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
+                    """
+                }
             }
         }
 
@@ -119,17 +120,16 @@ pipeline {
         // -------- REVIEWER OVERRIDE --------
 
         stage('Reviewer Override') {
-    when {
-        expression { currentBuild.currentResult == 'FAILURE' }
-    }
-    steps {
-        input message: "Performance regression detected. Override merge?"
-        script {
-            currentBuild.result = 'SUCCESS'
+            when {
+                expression { currentBuild.currentResult == 'FAILURE' }
+            }
+            steps {
+                input message: "Performance regression detected. Override merge?"
+                script {
+                    currentBuild.result = 'SUCCESS'
+                }
+            }
         }
-    }
-}
-
     }
 
     post {
