@@ -61,7 +61,7 @@ pipeline {
             steps {
                 bat """
                 %JMETER_HOME%\\bin\\jmeter.bat -n ^
-                -t jmeter\\petclinic.jmx ^
+                -t jmeter\\petclinic-smoke.jmx ^
                 -l result.csv
                 """
             }
