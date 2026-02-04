@@ -7,8 +7,8 @@ pipeline {
     }
 
     environment {
-        JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
-        SONAR_PROJECT = "petclinic-rest-testing"
+        JMETER_HOME     = "C:\\tools\\apache-jmeter-5.6.3"
+        SONAR_PROJECT  = "petclinic-rest-testing"
         PERF_THRESHOLD = "10"
     }
 
@@ -67,45 +67,53 @@ pipeline {
             }
         }
 
-        // -------- REGRESSION CHECK (PRS ONLY) --------
+        // -------- FETCH BASELINE FROM MASTER (PRS ONLY) --------
+
+        stage('Fetch Baseline') {
+            when {
+                not { branch 'master' }
+            }
+            steps {
+                bat """
+                if not exist perf mkdir perf
+                copy C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\petclinic-multibranch_master\\perf\\baseline.csv perf\\baseline.csv
+                """
+            }
+        }
+
+        // -------- REGRESSION GATE (PRS ONLY) --------
 
         stage('Regression Gate') {
-    when {
-        not { branch 'master' }
-    }
-    steps {
-        bat """
-        if exist perf\\baseline.csv (
-            C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
-            -ExecutionPolicy Bypass ^
-            -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
-        ) else (
-            echo Baseline not found. Skipping regression check.
-        )
-        """
-    }
-}
+            when {
+                not { branch 'master' }
+            }
+            steps {
+                bat """
+                C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+                -ExecutionPolicy Bypass ^
+                -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
+                """
+            }
+        }
 
-
-        // -------- UPDATE BASELINE (MAIN ONLY) --------
+        // -------- UPDATE BASELINE (MASTER ONLY) --------
 
         stage('Update Baseline') {
-    when {
-        branch 'master'
-    }
-    steps {
-        bat """
-        if not exist perf mkdir perf
-        copy result.csv perf\\baseline.csv
-        """
-    }
-    post {
-        always {
-            archiveArtifacts artifacts: 'perf/baseline.csv', fingerprint: true
+            when {
+                branch 'master'
+            }
+            steps {
+                bat """
+                if not exist perf mkdir perf
+                copy result.csv perf\\baseline.csv
+                """
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'perf/baseline.csv', fingerprint: true
+                }
+            }
         }
-    }
-}
-
 
         // -------- REVIEWER OVERRIDE --------
 
@@ -114,15 +122,14 @@ pipeline {
                 expression { currentBuild.result == 'FAILURE' }
             }
             steps {
-                input message: "Performance regression detected. Override?"
+                input message: "Performance regression detected. Override merge?"
             }
         }
     }
 
     post {
-    always {
-        archiveArtifacts artifacts: 'result.csv', fingerprint: true
+        always {
+            archiveArtifacts artifacts: 'result.csv', fingerprint: true
+        }
     }
-}
-
 }
