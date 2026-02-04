@@ -7,9 +7,10 @@ pipeline {
     }
 
     environment {
-        APP_PORT = "9966"
         JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
-        SONAR_PROJECT_KEY = "petclinic-rest-testing-demo"
+        SONAR_HOST = "http://localhost:9000"
+        SONAR_PROJECT = "petclinic-rest-testing"
+        PERF_THRESHOLD = "10"   // % allowed slowdown
     }
 
     stages {
@@ -20,80 +21,66 @@ pipeline {
             }
         }
 
-        stage('Build + Unit Tests') {
+        stage('Build + Tests') {
             steps {
-                bat 'mvn -U -B clean verify'
+                bat "mvn clean verify"
             }
-        }
-
-        stage('SonarQube Scan') {
-            options {
-                timeout(time: 45, unit: 'MINUTES')
-            }
-            steps {
-                withSonarQubeEnv('sonarqube') {
-                    bat '''
-                        mvn sonar:sonar ^
-                        -Dsonar.projectKey=%SONAR_PROJECT_KEY%
-                    '''
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
                 }
             }
         }
 
-        // ❌ REMOVED: SonarQube Quality Gate (webhook blocked on same host)
-        // stage('SonarQube Quality Gate') {
-        //     steps {
-        //         timeout(time: 10, unit: 'MINUTES') {
-        //             waitForQualityGate abortPipeline: true
-        //         }
-        //     }
-        // }
-
-        stage('Start App (for JMeter)') {
+        stage('SonarQube Scan') {
             steps {
-                bat '''
-                    echo Starting Petclinic on port %APP_PORT%
-                    start "petclinic" /B mvn spring-boot:run ^
-                    -Dspring-boot.run.arguments=--server.port=%APP_PORT%
-                    ping 127.0.0.1 -n 20 > nul
-                '''
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    bat """
+                    mvn sonar:sonar ^
+                    -Dsonar.projectKey=%SONAR_PROJECT% ^
+                    -Dsonar.host.url=%SONAR_HOST% ^
+                    -Dsonar.token=%SONAR_TOKEN%
+                    """
+                }
             }
         }
 
-        stage('JMeter Performance Test') {
+        stage('Quality Gate') {
             steps {
-                bat '''
-                    "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
-                    -t jmeter\\petclinic-smoke.jmx ^
-                    -l target\\jmeter-results.jtl ^
-                    -e -o target\\jmeter-report
-                '''
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
             }
         }
 
-        stage('Stop App') {
+        stage('JMeter Performance') {
             steps {
-                bat '''
-                    echo Stopping application running on port %APP_PORT%
-
-                    for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%APP_PORT%') do (
-                        echo Killing PID %%a
-                        taskkill /PID %%a /F
-                    )
-
-                    exit /b 0
-                '''
+                bat """
+                %JMETER_HOME%\\bin\\jmeter.bat -n ^
+                -t jmeter\\petclinic.jmx ^
+                -l result.csv
+                """
             }
         }
-    }
 
-    post {
-        always {
-            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-            archiveArtifacts artifacts: 'target/jmeter-results.jtl, target/jmeter-report/**', fingerprint: true
+        stage('Compare Performance') {
+            steps {
+                powershell """
+                if (Test-Path baseline.csv) {
+                    ./perf/compare.ps1 baseline.csv result.csv ${PERF_THRESHOLD}
+                }
+                Copy-Item result.csv baseline.csv -Force
+                """
+            }
         }
-        cleanup {
-            cleanWs(deleteDirs: true, disableDeferredWipeout: true)
+
+        stage('Reviewer Override') {
+            when {
+                expression { currentBuild.result == 'FAILURE' }
+            }
+            steps {
+                input message: "Performance regression detected. Override?"
+            }
         }
     }
 }
