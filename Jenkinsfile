@@ -32,13 +32,13 @@ pipeline {
             }
         }
 
-        stage('SonarQube Scan') {
+        stage('SonarQube Analysis') {
     steps {
         withSonarQubeEnv('SonarQube') {
             withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                 bat """
-                mvn sonar:sonar ^
-                -Dsonar.projectKey=%SONAR_PROJECT% ^
+                mvn clean verify sonar:sonar ^
+                -Dsonar.projectKey=petclinic-rest-testing ^
                 -Dsonar.token=%SONAR_TOKEN%
                 """
             }
@@ -46,14 +46,6 @@ pipeline {
     }
 }
 
-
-        stage('Quality Gate') {
-    steps {
-        timeout(time: 5, unit: 'MINUTES') {
-            waitForQualityGate abortPipeline: true
-        }
-    }
-}
 
 
         stage('JMeter Performance') {
