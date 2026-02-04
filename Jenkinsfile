@@ -119,13 +119,17 @@ pipeline {
         // -------- REVIEWER OVERRIDE --------
 
         stage('Reviewer Override') {
-            when {
-                expression { currentBuild.result == 'FAILURE' }
-            }
-            steps {
-                input message: "Performance regression detected. Override merge?"
-            }
+    when {
+        expression { currentBuild.currentResult == 'FAILURE' }
+    }
+    steps {
+        input message: "Performance regression detected. Override merge?"
+        script {
+            currentBuild.result = 'SUCCESS'
         }
+    }
+}
+
     }
 
     post {
