@@ -71,7 +71,7 @@ pipeline {
 
         stage('Regression Gate') {
     when {
-        not { branch 'main' }
+        not { branch 'master' }
     }
     steps {
         bat """
@@ -91,7 +91,7 @@ pipeline {
 
         stage('Update Baseline') {
     when {
-        branch 'main'
+        branch 'master'
     }
     steps {
         bat "copy result.csv perf\\baseline.csv /Y"
