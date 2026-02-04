@@ -70,16 +70,17 @@ pipeline {
         // -------- FETCH BASELINE FROM MASTER (PRS ONLY) --------
 
         stage('Fetch Baseline') {
-            when {
-                not { branch 'master' }
-            }
-            steps {
-                bat """
-                if not exist perf mkdir perf
-                copy C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\petclinic-multibranch_master\\perf\\baseline.csv perf\\baseline.csv
-                """
-            }
-        }
+    when {
+        not { branch 'master' }
+    }
+    steps {
+        bat """
+        if not exist perf mkdir perf
+        copy C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\petclinic-multibranch_master\\perf\\baseline.csv perf\\baseline.csv
+        """
+    }
+}
+
 
         // -------- REGRESSION GATE (PRS ONLY) --------
 
