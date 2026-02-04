@@ -1,11 +1,18 @@
-param($base,$current,$threshold)
+param($baseline,$current,$threshold)
 
-$old = (Get-Content $base | Measure-Object).Count
-$new = (Get-Content $current | Measure-Object).Count
+$b = Import-Csv $baseline
+$c = Import-Csv $current
 
-$diff = (($new - $old) / $old) * 100
+$baseAvg = ($b.elapsed | Measure-Object -Average).Average
+$newAvg  = ($c.elapsed | Measure-Object -Average).Average
+
+$diff = (($newAvg - $baseAvg) / $baseAvg) * 100
+
+Write-Host "Baseline avg: $baseAvg"
+Write-Host "Current avg: $newAvg"
+Write-Host "Diff %: $diff"
 
 if ($diff -gt $threshold) {
-    Write-Error "Performance degraded by $diff%"
+    Write-Error "Performance regression detected"
     exit 1
 }
