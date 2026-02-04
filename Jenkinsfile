@@ -94,7 +94,15 @@ pipeline {
         branch 'master'
     }
     steps {
-        bat "copy result.csv perf\\baseline.csv /Y"
+        bat """
+        if not exist perf mkdir perf
+        copy result.csv perf\\baseline.csv
+        """
+    }
+    post {
+        always {
+            archiveArtifacts artifacts: 'perf/baseline.csv', fingerprint: true
+        }
     }
 }
 
@@ -112,8 +120,9 @@ pipeline {
     }
 
     post {
-        always {
-            archiveArtifacts artifacts: 'result.csv', fingerprint: true
-        }
+    always {
+        archiveArtifacts artifacts: 'result.csv', fingerprint: true
     }
+}
+
 }
