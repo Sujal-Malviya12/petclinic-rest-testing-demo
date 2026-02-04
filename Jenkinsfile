@@ -7,9 +7,9 @@ pipeline {
     }
 
     environment {
-        APP_PORT = "9966"
         JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
-        SONAR_PROJECT_KEY = "petclinic-rest-testing-demo"
+        SONAR_PROJECT = "petclinic-rest-testing"
+        PERF_THRESHOLD = "10"
     }
 
     stages {
@@ -20,78 +20,100 @@ pipeline {
             }
         }
 
-        stage('Build + Unit Tests') {
+        stage('Build + Tests') {
             steps {
-                bat 'mvn -U -B clean verify'
+                bat "mvn clean verify"
             }
-        }
-
-        stage('SonarQube Scan') {
-            steps {
-                withSonarQubeEnv('Sonar-Qube-Token') {
-                    bat """
-                        mvn sonar:sonar ^
-                        -Dsonar.projectKey=%SONAR_PROJECT_KEY%
-                    """
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
                 }
             }
         }
 
-        stage('SonarQube Quality Gate') {
+        // ---------------- SONAR ----------------
+
+        stage('SonarQube Analysis') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
+                withSonarQubeEnv('SonarQube') {
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        bat """
+                        mvn sonar:sonar ^
+                        -Dsonar.projectKey=%SONAR_PROJECT% ^
+                        -Dsonar.token=%SONAR_TOKEN%
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
         }
 
-        stage('Start App (for JMeter)') {
+        // ---------------- JMETER ----------------
+
+        stage('JMeter Performance') {
             steps {
                 bat """
-                    echo Starting Petclinic on port %APP_PORT%
-                    start "petclinic" /B mvn spring-boot:run ^
-                    -Dspring-boot.run.arguments=--server.port=%APP_PORT%
-                    ping 127.0.0.1 -n 20 > nul
+                %JMETER_HOME%\\bin\\jmeter.bat -n ^
+                -t jmeter\\petclinic-smoke.jmx ^
+                -l result.csv
                 """
             }
         }
 
-        stage('JMeter Performance Test') {
-            steps {
-                bat """
-                    "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
-                    -t jmeter\\petclinic-smoke.jmx ^
-                    -l target\\jmeter-results.jtl ^
-                    -e -o target\\jmeter-report
-                """
-            }
-        }
+        // -------- REGRESSION CHECK (PRS ONLY) --------
 
-        stage('Stop App') {
+        stage('Regression Gate') {
+    when {
+        not { branch 'master' }
+    }
     steps {
-        bat '''
-        echo Stopping application running on port %APP_PORT%
-
-        for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%APP_PORT%') do (
-            echo Killing PID %%a
-            taskkill /PID %%a /F
+        bat """
+        if exist perf\\baseline.csv (
+            C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+            -ExecutionPolicy Bypass ^
+            -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
+        ) else (
+            echo Baseline not found. Skipping regression check.
         )
-
-        exit /b 0
-        '''
+        """
     }
 }
 
 
+        // -------- UPDATE BASELINE (MAIN ONLY) --------
+
+        stage('Update Baseline') {
+    when {
+        branch 'master'
+    }
+    steps {
+        bat "copy result.csv perf\\baseline.csv /Y"
+    }
+}
+
+
+        // -------- REVIEWER OVERRIDE --------
+
+        stage('Reviewer Override') {
+            when {
+                expression { currentBuild.result == 'FAILURE' }
+            }
+            steps {
+                input message: "Performance regression detected. Override?"
+            }
+        }
     }
 
     post {
         always {
-            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-            archiveArtifacts artifacts: 'target/jmeter-results.jtl, target/jmeter-report/**', fingerprint: true
-        }
-        cleanup {
-            cleanWs(deleteDirs: true, disableDeferredWipeout: true)
+            archiveArtifacts artifacts: 'result.csv', fingerprint: true
         }
     }
 }
