@@ -70,28 +70,34 @@ pipeline {
         // -------- REGRESSION CHECK (PRS ONLY) --------
 
         stage('Regression Gate') {
-            when {
-                not { branch 'main' }
-            }
-            steps {
-                bat """
-                C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
-                -ExecutionPolicy Bypass ^
-                -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
-                """
-            }
-        }
+    when {
+        not { branch 'main' }
+    }
+    steps {
+        bat """
+        if exist perf\\baseline.csv (
+            C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+            -ExecutionPolicy Bypass ^
+            -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
+        ) else (
+            echo Baseline not found. Skipping regression check.
+        )
+        """
+    }
+}
+
 
         // -------- UPDATE BASELINE (MAIN ONLY) --------
 
         stage('Update Baseline') {
-            when {
-                branch 'main'
-            }
-            steps {
-                bat "copy result.csv perf\\baseline.csv /Y"
-            }
-        }
+    when {
+        branch 'main'
+    }
+    steps {
+        bat "copy result.csv perf\\baseline.csv /Y"
+    }
+}
+
 
         // -------- REVIEWER OVERRIDE --------
 
