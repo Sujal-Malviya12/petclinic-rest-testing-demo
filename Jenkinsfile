@@ -68,15 +68,13 @@ pipeline {
         }
 
         stage('Compare Performance') {
-            steps {
-                powershell """
-                if (Test-Path baseline.csv) {
-                    ./perf/compare.ps1 baseline.csv result.csv ${PERF_THRESHOLD}
-                }
-                Copy-Item result.csv baseline.csv -Force
-                """
-            }
-        }
+    steps {
+        bat """
+        C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -ExecutionPolicy Bypass -File perf\\compare.ps1 baseline.csv result.csv 10
+        """
+    }
+}
+
 
         stage('Reviewer Override') {
             when {
