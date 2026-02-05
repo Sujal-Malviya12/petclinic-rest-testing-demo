@@ -173,8 +173,12 @@ pipeline {
 
     stage('HTML Dashboard') {
     steps {
-        bat "powershell -ExecutionPolicy Bypass -File perf\\dashboard.ps1"
-        archiveArtifacts artifacts: 'perf/dashboard.html'
+        bat """
+C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+-ExecutionPolicy Bypass ^
+-File perf\\dashboard.ps1
+"""
+
     }
 }
 
