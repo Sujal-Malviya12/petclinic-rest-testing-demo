@@ -48,8 +48,8 @@
           <hashTree/>
         </hashTree>
         <UniformRandomTimer guiclass="UniformRandomTimerGui" testclass="UniformRandomTimer" testname="Uniform Random Timer">
-          <stringProp name="ConstantTimer.delay">100</stringProp>
-          <stringProp name="RandomTimer.range">200.0</stringProp>
+          <stringProp name="ConstantTimer.delay">1000</stringProp>
+          <stringProp name="RandomTimer.range">2000.0</stringProp>
         </UniformRandomTimer>
         <hashTree/>
       </hashTree>
