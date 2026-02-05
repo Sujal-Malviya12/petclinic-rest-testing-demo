@@ -139,14 +139,22 @@ pipeline {
 
         stage('Performance Chart') {
     steps {
-        plot csvFileName: 'trend.csv',
-             csvSeries: [[file: 'perf/history/trend.csv']],
-             group: 'Performance',
-             title: 'Response Time Trend',
-             yaxis: 'Milliseconds',
-             style: 'line'
+        plot(
+            group: 'Performance',
+            title: 'Response Time Trend',
+            style: 'line',
+            yaxis: 'Milliseconds',
+            csvFileName: 'trend.csv',
+            csvSeries: [
+                [
+                    file: 'perf/history/trend.csv',
+                    label: 'Avg Response Time'
+                ]
+            ]
+        )
     }
 }
+
 
     }
 
