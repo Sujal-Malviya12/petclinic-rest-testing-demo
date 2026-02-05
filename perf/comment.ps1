@@ -1,44 +1,44 @@
 param(
-  [string]$baseline,
-  [string]$current,
-  [string]$repo,
-  [string]$pr,
-  [string]$token
+  $baseline,
+  $current,
+  $repo,
+  $pr,
+  $token
 )
 
-function Get-Median($file) {
-    $values = Import-Csv $file | Select -Expand elapsed | Sort
-    $c = $values.Count
-    if ($c -eq 0) { return 0 }
-    if ($c % 2 -eq 0) {
-        return ($values[$c/2] + $values[$c/2 - 1]) / 2
-    } else {
-        return $values[($c - 1) / 2]
-    }
-}
+# Read CSV
+$base = Import-Csv $baseline
+$cur  = Import-Csv $current
 
-$base = Get-Median $baseline
-$curr = Get-Median $current
-$diff = [math]::Round((($curr-$base)/$base)*100,2)
+$baseAvg = ($base.elapsed | Measure-Object -Average).Average
+$curAvg  = ($cur.elapsed  | Measure-Object -Average).Average
 
-$status = if ($diff -gt 0) { "🐢 Slower" } else { "🚀 Faster" }
+$diff = [math]::Round((($curAvg - $baseAvg) / $baseAvg) * 100,2)
 
-$body = @{
-  body = "📊 **Performance Report**
+# Build markdown safely
+$comment = @"
+## 🚀 Performance Report
 
-Baseline (master): $base ms  
-Current PR: $curr ms  
-Change: $diff %
+| Metric | Value |
+|--------|-------|
+| Baseline Avg | $([int]$baseAvg) ms |
+| Current Avg | $([int]$curAvg) ms |
+| Difference | $diff % |
 
-Status: $status
-"
-} | ConvertTo-Json
+📊 Trend CSV attached in Jenkins artifacts.
+
+"@
+
+$payload = @{
+  body = $comment
+} | ConvertTo-Json -Depth 5
 
 Invoke-RestMethod `
- -Uri "https://api.github.com/repos/$repo/issues/$pr/comments" `
- -Headers @{
-   Authorization = "token $token"
-   Accept="application/vnd.github+json"
- } `
- -Method POST `
- -Body $body
+  -Uri "https://api.github.com/repos/$repo/issues/$pr/comments" `
+  -Headers @{
+     Authorization = "Bearer $token"
+     Accept        = "application/vnd.github+json"
+     "User-Agent" = "Jenkins"
+  } `
+  -Method POST `
+  -Body $payload
