@@ -1,0 +1,2 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1770201529007,60,GET Owners API,200,,Smoke Thread Group 1-1,text,true,,3358,136,1,1,http://localhost:9966/petclinic/api/owners,57,0,22

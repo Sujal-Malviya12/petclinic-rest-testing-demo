@@ -7,9 +7,10 @@ pipeline {
     }
 
     environment {
-        APP_PORT = "9966"
-        JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
-        SONAR_PROJECT_KEY = "petclinic-rest-testing-demo"
+        JMETER_HOME     = "C:\\tools\\apache-jmeter-5.6.3"
+        SONAR_PROJECT  = "petclinic-rest-testing"
+        PERF_THRESHOLD = "10"
+        APP_PORT       = "9966"
     }
 
     stages {
@@ -20,62 +21,180 @@ pipeline {
             }
         }
 
-        stage('Build + Unit Tests') {
+        stage('Build + Tests') {
             steps {
-                bat 'mvn -U -B clean verify'
+                bat "mvn clean verify"
             }
-        }
-
-        stage('SonarQube Scan') {
-            steps {
-                withSonarQubeEnv('Sonar-Qube-Token') {
-                    bat """
-                        mvn sonar:sonar ^
-                        -Dsonar.projectKey=%SONAR_PROJECT_KEY%
-                    """
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
                 }
             }
         }
 
-        stage('SonarQube Quality Gate') {
+        // ---------------- SONAR ----------------
+
+        stage('SonarQube Analysis') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
+                withSonarQubeEnv('SonarQube') {
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        bat """
+                        mvn sonar:sonar ^
+                        -Dsonar.projectKey=%SONAR_PROJECT% ^
+                        -Dsonar.token=%SONAR_TOKEN%
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
                 }
             }
         }
 
-//         stage('Start App (for JMeter)') {
-//     steps {
-//         bat """
-//             echo Starting Petclinic on port %APP_PORT%
-//             start "petclinic" /B mvn spring-boot:run ^
-//             -Dspring-boot.run.arguments=--server.port=%APP_PORT%
-//             ping 127.0.0.1 -n 20 > nul
-//         """
-//     }
-// }
+        // ---------------- JMETER ----------------
+
+        stage('JMeter Performance') {
+            steps {
+                bat """
+                %JMETER_HOME%\\bin\\jmeter.bat -n ^
+                -t jmeter\\petclinic-smoke.jmx ^
+                -l result.csv
+                """
+            }
+        }
+
+        // -------- SAVE TREND --------
+
+        stage('Record Performance') {
+            steps {
+                bat """
+                if not exist perf\\history mkdir perf\\history
+
+                C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+                -ExecutionPolicy Bypass ^
+                -File perf\\extract.ps1 result.csv perf\\history\\trend.csv
+                """
+            }
+        }
+
+        // -------- FETCH BASELINE (PRS ONLY) --------
+
+        stage('Fetch Baseline') {
+            when { not { branch 'master' } }
+            steps {
+                bat """
+                if not exist perf mkdir perf
+                copy C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\petclinic-multibranch_master\\perf\\baseline.csv perf\\baseline.csv
+                """
+            }
+        }
+
+        // -------- PERFORMANCE GATE --------
+
+        stage('Performance Gate') {
+            when { not { branch 'master' } }
+            steps {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    bat """
+                    C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+                    -ExecutionPolicy Bypass ^
+                    -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
+                    """
+                }
+            }
+        }
+
+        stage('GitHub PR Comment') {
+    when { not { branch 'master' } }
+    steps {
+        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+            bat """
+            C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+            -ExecutionPolicy Bypass ^
+            -File perf\\comment.ps1 perf\\baseline.csv result.csv ^
+            Sujal-Malviya12/petclinic-rest-testing-demo %CHANGE_ID% %GITHUB_TOKEN%
+            """
+        }
+    }
+}
 
 
 
-//         stage('JMeter Performance Test') {
-//             steps {
-//                 bat """
-//                     "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
-//                     -t jmeter\\petclinic-smoke.jmx ^
-//                     -l target\\jmeter-results.jtl
-//                 """
-//             }
-//         }
+        // -------- REVIEWER OVERRIDE --------
+
+        stage('Reviewer Override') {
+            when {
+                expression { currentBuild.currentResult == 'FAILURE' }
+            }
+            steps {
+                input message: "Performance regression detected. Override merge?"
+                script {
+                    currentBuild.result = 'SUCCESS'
+                }
+            }
+        }
+
+        // -------- UPDATE BASELINE (MASTER ONLY) --------
+
+        stage('Update Baseline') {
+            when { branch 'master' }
+            steps {
+                bat """
+                if not exist perf mkdir perf
+                copy result.csv perf\\baseline.csv
+                """
+            }
+        }
+
+        // -------- PERFORMANCE CHART --------
+
+        stage('Performance Chart') {
+    steps {
+        plot(
+            group: 'Performance',
+            title: 'Response Time Trend',
+            style: 'line',
+            yaxis: 'Milliseconds',
+            csvFileName: 'trend.csv',
+            csvSeries: [
+                [
+                    file: 'perf/history/trend.csv',
+                    label: 'Avg Response Time'
+                ]
+            ]
+        )
+    }
+}
+
+    stage('HTML Dashboard') {
+    steps {
+        bat """
+        C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+        -ExecutionPolicy Bypass ^
+        -File perf\\dashboard.ps1
+        """
+        publishHTML([
+            allowMissing: false,
+            alwaysLinkToLastBuild: true,
+            keepAll: true,
+            reportDir: 'perf',
+            reportFiles: 'dashboard.html',
+            reportName: 'Performance Dashboard'
+        ])
+    }
+}
+
+
     }
 
     post {
         always {
-            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-        }
-        cleanup {
-            cleanWs()
+            archiveArtifacts artifacts: 'result.csv, perf/baseline.csv, perf/history/trend.csv', fingerprint: true
         }
     }
 }
-// checking comment
