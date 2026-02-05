@@ -174,13 +174,21 @@ pipeline {
     stage('HTML Dashboard') {
     steps {
         bat """
-C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
--ExecutionPolicy Bypass ^
--File perf\\dashboard.ps1
-"""
-
+        C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+        -ExecutionPolicy Bypass ^
+        -File perf\\dashboard.ps1
+        """
+        publishHTML([
+            allowMissing: false,
+            alwaysLinkToLastBuild: true,
+            keepAll: true,
+            reportDir: 'perf',
+            reportFiles: 'dashboard.html',
+            reportName: 'Performance Dashboard'
+        ])
     }
 }
+
 
     }
 
