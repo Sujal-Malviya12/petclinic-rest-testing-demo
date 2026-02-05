@@ -7,10 +7,9 @@ pipeline {
     }
 
     environment {
-        APP_PORT = "9966"
-        JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
-        SONAR_HOST = "http://localhost:9000"
-        SONAR_PROJECT_KEY = "petclinic-rest-testing-demo"
+        JMETER_HOME     = "C:\\tools\\apache-jmeter-5.6.3"
+        SONAR_PROJECT  = "petclinic-rest-testing"
+        PERF_THRESHOLD = "10"
     }
 
     stages {
@@ -21,52 +20,117 @@ pipeline {
             }
         }
 
-        stage('Build + Unit Tests') {
+        stage('Build + Tests') {
             steps {
-                bat 'mvn -U -B clean verify'
+                bat "mvn clean verify"
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                }
             }
         }
 
-        stage('SonarQube Scan') {
-    steps {
-        withSonarQubeEnv('SonarQube-Server') {
-            bat """
-            mvn -B clean verify sonar:sonar ^
-            -Dsonar.projectKey=%SONAR_PROJECT_KEY%
-            """
+        // ---------------- SONAR ----------------
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        bat """
+                        mvn sonar:sonar ^
+                        -Dsonar.projectKey=%SONAR_PROJECT% ^
+                        -Dsonar.token=%SONAR_TOKEN%
+                        """
+                    }
+                }
+            }
         }
-    }
-}
 
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
 
-        stage('Start App (for JMeter)') {
+        // ---------------- JMETER ----------------
+
+        stage('JMeter Performance') {
             steps {
                 bat """
-                    start "petclinic" /B mvn spring-boot:run ^
-                    -Dspring-boot.run.arguments=--server.port=%APP_PORT%
-                    timeout /t 20
+                %JMETER_HOME%\\bin\\jmeter.bat -n ^
+                -t jmeter\\petclinic-smoke.jmx ^
+                -l result.csv
                 """
             }
         }
 
-        stage('JMeter Performance Test') {
+        // -------- FETCH BASELINE FROM MASTER (PRS ONLY) --------
+
+        stage('Fetch Baseline') {
+            when {
+                not { branch 'master' }
+            }
             steps {
                 bat """
-                    "%JMETER_HOME%\\bin\\jmeter.bat" -n ^
-                    -t jmeter\\petclinic-smoke.jmx ^
-                    -l target\\jmeter-results.jtl
+                if not exist perf mkdir perf
+                copy C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\petclinic-multibranch_master\\perf\\baseline.csv perf\\baseline.csv
                 """
+            }
+        }
+
+        // -------- PERFORMANCE REGRESSION + MANUAL OVERRIDE --------
+
+        stage('Performance Gate') {
+            when {
+                not { branch 'master' }
+            }
+            steps {
+                script {
+
+                    def status = bat(
+                        script: """
+                        C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+                        -ExecutionPolicy Bypass ^
+                        -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (status != 0) {
+                        input message: "Performance regression detected. Override merge?"
+
+                        echo "Override approved — continuing pipeline"
+                    }
+                }
+            }
+        }
+
+        // -------- UPDATE BASELINE (MASTER ONLY) --------
+
+        stage('Update Baseline') {
+            when {
+                branch 'master'
+            }
+            steps {
+                bat """
+                if not exist perf mkdir perf
+                copy result.csv perf\\baseline.csv
+                """
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'perf/baseline.csv', fingerprint: true
+                }
             }
         }
     }
 
     post {
         always {
-            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
-        }
-        cleanup {
-            cleanWs()
+            archiveArtifacts artifacts: 'result.csv', fingerprint: true
         }
     }
 }
-
