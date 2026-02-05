@@ -10,20 +10,29 @@ pipeline {
         JMETER_HOME     = "C:\\tools\\apache-jmeter-5.6.3"
         SONAR_PROJECT  = "petclinic-rest-testing"
         PERF_THRESHOLD = "10"
+        APP_PORT       = "9966"
     }
 
     stages {
 
         stage('Checkout') {
-            steps { checkout scm }
+            steps {
+                checkout scm
+            }
         }
 
         stage('Build + Tests') {
-            steps { bat "mvn clean verify" }
+            steps {
+                bat "mvn clean verify"
+            }
             post {
-                always { junit '**/target/surefire-reports/*.xml' }
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                }
             }
         }
+
+        // ---------------- SONAR ----------------
 
         stage('SonarQube Analysis') {
             steps {
@@ -47,6 +56,8 @@ pipeline {
             }
         }
 
+        // ---------------- JMETER ----------------
+
         stage('JMeter Performance') {
             steps {
                 bat """
@@ -56,6 +67,8 @@ pipeline {
                 """
             }
         }
+
+        // -------- SAVE TREND --------
 
         stage('Record Performance') {
             steps {
@@ -69,6 +82,8 @@ pipeline {
             }
         }
 
+        // -------- FETCH BASELINE (PRS ONLY) --------
+
         stage('Fetch Baseline') {
             when { not { branch 'master' } }
             steps {
@@ -78,6 +93,8 @@ pipeline {
                 """
             }
         }
+
+        // -------- PERFORMANCE GATE --------
 
         stage('Performance Gate') {
             when { not { branch 'master' } }
@@ -92,13 +109,21 @@ pipeline {
             }
         }
 
+        // -------- REVIEWER OVERRIDE --------
+
         stage('Reviewer Override') {
-            when { expression { currentBuild.currentResult == 'FAILURE' } }
+            when {
+                expression { currentBuild.currentResult == 'FAILURE' }
+            }
             steps {
                 input message: "Performance regression detected. Override merge?"
-                script { currentBuild.result = 'SUCCESS' }
+                script {
+                    currentBuild.result = 'SUCCESS'
+                }
             }
         }
+
+        // -------- UPDATE BASELINE (MASTER ONLY) --------
 
         stage('Update Baseline') {
             when { branch 'master' }
@@ -109,6 +134,8 @@ pipeline {
                 """
             }
         }
+
+        // -------- PERFORMANCE CHART --------
 
         stage('Performance Chart') {
             steps {
