@@ -7,8 +7,8 @@ pipeline {
     }
 
     environment {
-        JMETER_HOME = "C:\\tools\\apache-jmeter-5.6.3"
-        SONAR_PROJECT = "petclinic-rest-testing"
+        JMETER_HOME     = "C:\\tools\\apache-jmeter-5.6.3"
+        SONAR_PROJECT  = "petclinic-rest-testing"
         PERF_THRESHOLD = "10"
     }
 
@@ -67,62 +67,70 @@ pipeline {
             }
         }
 
-        // -------- REGRESSION CHECK (PRS ONLY) --------
+        // -------- FETCH BASELINE FROM MASTER (PRS ONLY) --------
 
-        stage('Regression Gate') {
-    when {
-        not { branch 'master' }
-    }
-    steps {
-        bat """
-        if exist perf\\baseline.csv (
-            C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
-            -ExecutionPolicy Bypass ^
-            -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
-        ) else (
-            echo Baseline not found. Skipping regression check.
-        )
-        """
-    }
-}
-
-
-        // -------- UPDATE BASELINE (MAIN ONLY) --------
-
-        stage('Update Baseline') {
-    when {
-        branch 'master'
-    }
-    steps {
-        bat """
-        if not exist perf mkdir perf
-        copy result.csv perf\\baseline.csv
-        """
-    }
-    post {
-        always {
-            archiveArtifacts artifacts: 'perf/baseline.csv', fingerprint: true
-        }
-    }
-}
-
-
-        // -------- REVIEWER OVERRIDE --------
-
-        stage('Reviewer Override') {
+        stage('Fetch Baseline') {
             when {
-                expression { currentBuild.result == 'FAILURE' }
+                not { branch 'master' }
             }
             steps {
-                input message: "Performance regression detected. Override?"
+                bat """
+                if not exist perf mkdir perf
+                copy C:\\ProgramData\\Jenkins\\.jenkins\\workspace\\petclinic-multibranch_master\\perf\\baseline.csv perf\\baseline.csv
+                """
+            }
+        }
+
+        // -------- PERFORMANCE REGRESSION + MANUAL OVERRIDE --------
+
+        stage('Performance Gate') {
+            when {
+                not { branch 'master' }
+            }
+            steps {
+                script {
+
+                    def status = bat(
+                        script: """
+                        C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+                        -ExecutionPolicy Bypass ^
+                        -File perf\\compare.ps1 perf\\baseline.csv result.csv %PERF_THRESHOLD%
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (status != 0) {
+                        input message: "Performance regression detected. Override merge?"
+
+                        echo "Override approved — continuing pipeline"
+                    }
+                }
+            }
+        }
+
+        // -------- UPDATE BASELINE (MASTER ONLY) --------
+
+        stage('Update Baseline') {
+            when {
+                branch 'master'
+            }
+            steps {
+                bat """
+                if not exist perf mkdir perf
+                copy result.csv perf\\baseline.csv
+                """
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'perf/baseline.csv', fingerprint: true
+                }
             }
         }
     }
 
     post {
-    always {
-        archiveArtifacts artifacts: 'result.csv', fingerprint: true
+        always {
+            archiveArtifacts artifacts: 'result.csv', fingerprint: true
+        }
     }
-}
-
 }
