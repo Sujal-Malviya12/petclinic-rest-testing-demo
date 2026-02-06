@@ -98,23 +98,23 @@ pipeline {
             }
         }
 
-//         stage('GitHub PR Comment') {
-//     when { not { branch 'master' } }
-//     steps {
-//         withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-//             bat """
-//             C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
-//             -ExecutionPolicy Bypass ^
-//             -File "%WORKSPACE%\\perf\\comment.ps1" ^
-//             "%WORKSPACE%\\perf\\baseline.csv" ^
-//             "%WORKSPACE%\\result.csv" ^
-//             "Sujal-Malviya12/petclinic-rest-testing-demo" ^
-//             "%CHANGE_ID%" ^
-//             "%GITHUB_TOKEN%"
-//             """
-//         }
-//     }
-// }
+        stage('GitHub PR Comment') {
+    when { not { branch 'master' } }
+    steps {
+        withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
+            bat """
+            C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe ^
+            -ExecutionPolicy Bypass ^
+            -File "%WORKSPACE%\\perf\\comment.ps1" ^
+            "%WORKSPACE%\\perf\\baseline.csv" ^
+            "%WORKSPACE%\\result.csv" ^
+            "Sujal-Malviya12/petclinic-rest-testing-demo" ^
+            "%CHANGE_ID%" ^
+            "%GITHUB_TOKEN%"
+            """
+        }
+    }
+}
 
 
 
