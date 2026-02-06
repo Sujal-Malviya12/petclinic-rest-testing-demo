@@ -372,10 +372,10 @@
                             <apiPackage>org.springframework.samples.petclinic.rest.api</apiPackage>
                             <generateModels>true</generateModels>
                             <modelPackage>org.springframework.samples.petclinic.rest.dto</modelPackage>
-                            <!--
+                           
                             <generateSupportingFiles>true</generateSupportingFiles>
                             <supportingFilesToGenerate>ApiUtil.java</supportingFilesToGenerate>
-                            -->
+                            
                             <generateApis>true</generateApis>
                             <configOptions>
                                 <!-- RestController implementation is provided by Petclinic developers -->
