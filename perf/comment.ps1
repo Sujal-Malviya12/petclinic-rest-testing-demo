@@ -1,3 +1,6 @@
+if (!(Test-Path $baseline)) { Write-Error "baseline.csv missing"; exit 1 }
+if (!(Test-Path $current))  { Write-Error "result.csv missing"; exit 1 }
+
 param(
   $baseline,
   $current,
